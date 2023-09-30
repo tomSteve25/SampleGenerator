@@ -1,11 +1,10 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
+import 'package:sample_generator/WatermarkPositionEnum.dart';
+import 'package:sample_generator/image_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -27,7 +26,6 @@ Future<SharedPreferences> loadPreferences() async {
   return pref;
 }
 
-enum WatermarkPosition { center, topLeft, topRight, bottomLeft, bottomRight }
 
 class MyApp extends StatelessWidget {
   final SharedPreferences pref;
@@ -58,88 +56,33 @@ class _MyHomePageState extends State<MyHomePage> {
   String? _imageDirectory;
   String? _watermarkDirectory;
   bool _processImagesDisabled = true;
-  WatermarkPosition? _watermarkPosition = WatermarkPosition.center;
+  WatermarkPosition _watermarkPosition = WatermarkPosition.center;
   final _directoryController = TextEditingController();
   final _watermarkController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final ImageEditor imageEditor = ImageEditor();
 
   @override
   void initState() {
     super.initState();
     _imageDirectory = widget.pref.getString("imageDirectory");
     _directoryController.text = _imageDirectory ?? "Select a image folder";
+    imageEditor.inputFolderPath = _imageDirectory;
     _watermarkDirectory = widget.pref.getString("watermarkPath");
     _watermarkController.text = _watermarkDirectory ?? "Select a watermark";
+    imageEditor.watermarkPath = _watermarkDirectory;
   }
 
   Future<void> processImages() async {
     print("Starting processing");
     final inputFolderPath = _imageDirectory;
-
-    final folderPath = await getApplicationDocumentsDirectory();
-    final outputFolderPath = path.join(folderPath.path, 'output');
-
+    final outputFolderPath = path.join(inputFolderPath!, 'output');
     Directory(outputFolderPath).createSync(recursive: true);
-    final watermark =
-        img.decodeImage(File(_watermarkDirectory!).readAsBytesSync());
-    if (watermark == null) {
-      debugPrint('Failed to load the watermark image.');
-      return;
-    }
+    imageEditor.outputDirectory = outputFolderPath;
+    imageEditor.watermarkPath = _watermarkDirectory;
+    imageEditor.watermarkPosition = _watermarkPosition;
 
-    // Process each image in the selected folder
-    for (var file in Directory(inputFolderPath!).listSync()) {
-      final imageName = path.basename(file.path);
-      debugPrint("Image name: ${file.path}");
-      if (file.path.contains("watermark")) {
-        continue;
-      }
-      final inputFile = File(file.path);
-      final outputFile = File(path.join(outputFolderPath, imageName));
-
-      // Copy original image
-      await inputFile.copy(outputFile.path);
-
-      // Process the image (resize and add watermark)
-      final image = img.decodeImage(await inputFile.readAsBytes());
-      if (image != null) {
-        img.Image? resizedImage = img.copyResize(image,
-            width: image.width ~/ 10,
-            height: image.height ~/ 10,
-            interpolation: img.Interpolation.cubic);
-        resizedImage =
-            img.decodeImage(img.encodeJpg(resizedImage, quality: 10));
-        if (resizedImage == null) {
-          return;
-        }
-        int posX = resizedImage.width ~/ 2 - watermark.width ~/ 2;
-        int posY = resizedImage.height ~/ 2 - watermark.height ~/ 2;
-        switch (_watermarkPosition) {
-          case WatermarkPosition.topLeft:
-            posX = 0;
-            posY = 0;
-            break;
-          case WatermarkPosition.topRight:
-            posX = resizedImage.width - watermark.width;
-            posY = 0;
-            break;
-          case WatermarkPosition.bottomLeft:
-            posX = 0;
-            posY = resizedImage.height - watermark.height;
-            break;
-          case WatermarkPosition.bottomRight:
-            posX = resizedImage.width - watermark.width;
-            posY = resizedImage.height - watermark.height;
-            break;
-          case WatermarkPosition.center:
-          case null:
-            break;
-        }
-        img.drawImage(resizedImage, watermark, dstX: posX, dstY: posY);
-        outputFile.writeAsBytesSync(img.encodeJpg(resizedImage));
-        // OpenFile.open(outputFile.path);
-      }
-    }
+    imageEditor.applyWatermarkToDirectory();
     print("Finished");
   }
 
@@ -152,6 +95,8 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _imageDirectory = path;
         _directoryController.text = path;
+        imageEditor.inputFolderPath = path;
+
       });
       widget.pref.setString("imageDirectory", path);
     }
@@ -161,12 +106,13 @@ class _MyHomePageState extends State<MyHomePage> {
     FilePickerResult? files = await FilePicker.platform.pickFiles(
         type: FileType.image,
         dialogTitle: "Please pick a watermark image",
-        initialDirectory: _watermarkDirectory
+        initialDirectory: path.dirname(_watermarkDirectory!)
     );
     if (files != null) {
       setState(() {
         _watermarkDirectory = files.paths.first;
-        _watermarkController.text = files.paths.first!;
+        _watermarkController.text = files.paths.first ?? _watermarkController.text;
+        imageEditor.watermarkPath = _watermarkController.text;
       });
       widget.pref.setString("watermarkPath", _watermarkDirectory!);
     }
@@ -178,7 +124,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void radioButtonCallback(WatermarkPosition? value) {
     setState(() {
-      _watermarkPosition = value;
+      _watermarkPosition = value ?? _watermarkPosition;
     });
   }
 
