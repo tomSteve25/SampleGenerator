@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
@@ -12,6 +10,7 @@ import 'package:sample_generator/widgets/card_highlight.dart';
 import 'package:sample_generator/widgets/number_input.dart';
 import 'package:sample_generator/widgets/position_select.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'service/enums/watermark_position.dart';
 import 'theme.dart';
 
@@ -33,9 +32,7 @@ Future<SharedPreferences> loadPreferences() async {
   if (pref.getDouble("watermarkScale") == null) {
     pref.setDouble("watermarkScale", 1);
   }
-  if (pref.getString("watermarkPath") == null) {
-    pref.setString("watermarkPath", "assets/watermark.png");
-  }
+
   return pref;
 }
 
@@ -105,7 +102,7 @@ class _HomePageState extends State<HomePage> with PageMixin {
   void initState() {
     super.initState();
     _imageDirectory = widget.pref.getString("imageDirectory");
-    _outputDirectory = path.join(_imageDirectory!, 'output');
+    _outputDirectory = _imageDirectory != null ? path.join(_imageDirectory!, 'output') : null;
     _watermarkDirectory = widget.pref.getString("watermarkPath");
     _scale = widget.pref.getDouble("scale");
     _watermarkScale = widget.pref.getDouble("watermarkScale");
@@ -140,9 +137,10 @@ class _HomePageState extends State<HomePage> with PageMixin {
 
   Future<void> selectWatermark() async {
     FilePickerResult? files = await FilePicker.platform.pickFiles(
-    type: FileType.image,
-    dialogTitle: "Please pick a watermark image",
-    initialDirectory: path.dirname(_watermarkDirectory!));
+      type: FileType.image,
+      dialogTitle: "Please pick a watermark image",
+      initialDirectory: _watermarkDirectory != null ? path.dirname(_watermarkDirectory!) : null
+    );
     if (files != null) {
       setState(() {
         _watermarkDirectory = files.paths.first;
@@ -176,18 +174,19 @@ class _HomePageState extends State<HomePage> with PageMixin {
     setState(() {
       _disabled = true;
     });
-    await Directory(_outputDirectory!).delete(recursive: true);
-    await Directory(_outputDirectory!).create(recursive: true);
-    imageEditor.inputFolderPath = _imageDirectory;
-    imageEditor.outputDirectory = _outputDirectory;
-    imageEditor.watermarkPath = _watermarkDirectory;
-    imageEditor.watermarkPosition = _watermarkPosition;
-    imageEditor.scale = _scale ?? 10;
-    imageEditor.watermarkScale = _watermarkScale ?? 1;
     try {
+      imageEditor.inputFolderPath = _imageDirectory;
+      imageEditor.outputDirectory = _outputDirectory;
+      imageEditor.watermarkPath = _watermarkDirectory;
+      imageEditor.watermarkPosition = _watermarkPosition;
+      imageEditor.scale = _scale ?? 10;
+      imageEditor.watermarkScale = _watermarkScale ?? 1;
       await imageEditor.applyWatermarkToDirectory();
     } on DetailedException catch(e) {
       showContentDialog(context, e);
+    } on Exception catch (ex) {
+      var tempException = DetailedException("Runtime Exception", ex.toString());
+      showContentDialog(context, tempException);
     } finally {
       setState(() {
         _disabled = false;
@@ -212,10 +211,10 @@ class _HomePageState extends State<HomePage> with PageMixin {
             const Text("This application allows for automatic generation of downsampled images with an applied watermark"),
             subtitle(content: const Text("Image Directory")),
             description(content: const Text("This directory contains the images that you want to apply the transformations to")),
-            CardHighlight(message: _imageDirectory!, callback: _disabled ? null : selectImageDirectory, icon: FluentIcons.folder_horizontal,),
+            CardHighlight(message: _imageDirectory ?? "Please select a directory", callback: _disabled ? null : selectImageDirectory, icon: FluentIcons.folder_horizontal,),
             subtitle(content: const Text("Watermark")),
             description(content: const Text("This is the image you want to use as a watermark. It's recommended to use a transparent format (e.g. PNG)")),
-            CardHighlight(message: _watermarkDirectory!, callback: _disabled ? null : selectWatermark, icon: FluentIcons.file_image,),
+            CardHighlight(message: _watermarkDirectory ?? "Please select a watermark", callback: _disabled ? null : selectWatermark, icon: FluentIcons.file_image,),
             subtitle(content: const Text("Output Directory")),
             description(content: const Text("This is the output directory. This defaults to a subdirectory of the input directory called 'output'")),
             CardHighlight(message: _outputDirectory ?? 'This will be set automatically, or set it yourself', callback: _disabled ? null : selectOutputDirectory, icon: FluentIcons.file_image,),
