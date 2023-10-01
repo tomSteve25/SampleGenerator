@@ -2,15 +2,17 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:provider/provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:sample_generator/image_processor.dart';
+import 'package:provider/provider.dart';
 import 'package:sample_generator/page.dart';
+import 'package:sample_generator/service/exceptions/detailed_exception.dart';
+import 'package:sample_generator/service/image_processor.dart';
+import 'package:sample_generator/widgets/ErrorWidget.dart';
 import 'package:sample_generator/widgets/card_highlight.dart';
 import 'package:sample_generator/widgets/number_input.dart';
 import 'package:sample_generator/widgets/position_select.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'watermark_position.dart';
+import 'service/enums/watermark_position.dart';
 import 'theme.dart';
 
 
@@ -79,7 +81,7 @@ class MyApp extends StatelessWidget {
 class HomePage extends StatefulWidget {
   final SharedPreferences pref;
 
-  HomePage({
+  const HomePage({
     super.key,
     required this.pref
   });
@@ -98,7 +100,6 @@ class _HomePageState extends State<HomePage> with PageMixin {
   WatermarkPosition _watermarkPosition = WatermarkPosition.center;
   ImageEditor imageEditor = ImageEditor();
   bool _disabled = false;
-
 
   @override
   void initState() {
@@ -183,11 +184,23 @@ class _HomePageState extends State<HomePage> with PageMixin {
     imageEditor.watermarkPosition = _watermarkPosition;
     imageEditor.scale = _scale ?? 10;
     imageEditor.watermarkScale = _watermarkScale ?? 1;
-    await imageEditor.applyWatermarkToDirectory();
-    setState(() {
-      _disabled = false;
-      _percentageCompleted = 0;
-    });
+    try {
+      await imageEditor.applyWatermarkToDirectory();
+    } on DetailedException catch(e) {
+      showContentDialog(context, e);
+    } finally {
+      setState(() {
+        _disabled = false;
+        _percentageCompleted = 0;
+      });
+    }
+  }
+
+  void showContentDialog(BuildContext context, DetailedException ex) async {
+    await showDialog<String>(
+      context: context,
+      builder: (context) => CustomErrorWidget(errorTitle: ex.title, errorDetails: ex.message,)
+    );
   }
 
   @override

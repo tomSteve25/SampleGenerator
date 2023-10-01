@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
-import 'package:sample_generator/watermark_position.dart';
+import 'package:sample_generator/service/enums/watermark_position.dart';
+import 'package:sample_generator/service/exceptions/detailed_exception.dart';
 
 class ImageEditor {
   String? watermarkPath = "assets/watermark.png";
@@ -44,6 +45,7 @@ class ImageEditor {
   }
 
   void _setup() {
+    _validateDirectories();
     img.Image? temp = img.decodeImage(File(watermarkPath!).readAsBytesSync());
     if (temp != null) {
       watermark =  img.copyResize(temp,
@@ -51,8 +53,17 @@ class ImageEditor {
         height: temp.height ~/ watermarkScale,
         interpolation: img.Interpolation.cubic
       );
+    } else {
+      throw DetailedException("Failed to open watermark", "Failed to open watermark. Please check that the file is valid");
     }
+  }
 
+  void _validateDirectories() {
+    if (watermarkPath == null || inputFolderPath == null || outputDirectory == null) {
+      throw DetailedException(
+          "The provided directory/ies are invalid.",
+          "Watermark: $watermarkPath\nInput Image Folder: $inputFolderPath \nOutput Folder: $outputDirectory");
+    }
   }
 
   img.Image? _applyWatermarkToFile(img.Image image) {

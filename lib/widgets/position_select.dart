@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:sample_generator/page.dart';
-import 'package:sample_generator/watermark_position.dart';
+import 'package:sample_generator/service/enums/watermark_position.dart';
 
 class PositionSelect extends StatefulWidget {
-  PositionSelect({
+  const PositionSelect({
     super.key,
     required this.callback,
   });
