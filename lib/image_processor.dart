@@ -1,25 +1,27 @@
-import 'package:image/image.dart' as img;
 import 'dart:io';
+
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
-import 'package:sample_generator/WatermarkPositionEnum.dart';
-
-
+import 'package:sample_generator/watermark_position.dart';
 
 class ImageEditor {
   String? watermarkPath = "assets/watermark.png";
   String? inputFolderPath;
   String? outputDirectory;
-  int scale = 10;
+  double scale = 10;
+  double watermarkScale = 1;
   img.Image? watermark;
   WatermarkPosition watermarkPosition = WatermarkPosition.center;
   int quality = 50;
+  late final void Function(double?)? callback;
 
-  void applyWatermarkToDirectory() {
+  Future<void> applyWatermarkToDirectory() async {
     _setup();
     if (watermark == null || inputFolderPath == null || outputDirectory == null) {
       return;
     }
     List<File> imagesInDir = _filterNonImages(Directory(inputFolderPath!).listSync());
+    int count = 0;
     for (File file in imagesInDir) {
       if (path.extension(file.path).isEmpty) continue;
       String imageName = path.basename(file.path);
@@ -28,18 +30,29 @@ class ImageEditor {
       }
       final outputFile = File(path.join(outputDirectory!, imageName));
 
-      img.Image? image = img.decodeImage(file.readAsBytesSync());
+      img.Image? image = img.decodeImage(await file.readAsBytes());
       if (image != null) {
         var editedImage = _applyWatermarkToFile(image);
         if (editedImage != null) {
-          outputFile.writeAsBytesSync(img.encodeJpg(editedImage));
+          await outputFile.writeAsBytes(img.encodeJpg(editedImage));
+          if (callback != null) {
+            callback!((++count/imagesInDir.length * 100));
+          }
         }
       }
     }
   }
 
   void _setup() {
-    watermark = img.decodeImage(File(watermarkPath!).readAsBytesSync());
+    img.Image? temp = img.decodeImage(File(watermarkPath!).readAsBytesSync());
+    if (temp != null) {
+      watermark =  img.copyResize(temp,
+        width: temp.width ~/ watermarkScale,
+        height: temp.height ~/ watermarkScale,
+        interpolation: img.Interpolation.cubic
+      );
+    }
+
   }
 
   img.Image? _applyWatermarkToFile(img.Image image) {
