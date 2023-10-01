@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
-import 'package:sample_generator/watermark_position.dart';
+import 'package:sample_generator/service/enums/watermark_position.dart';
+import 'package:sample_generator/service/exceptions/detailed_exception.dart';
 
 class ImageEditor {
   String? watermarkPath = "assets/watermark.png";
@@ -16,10 +17,7 @@ class ImageEditor {
   late final void Function(double?)? callback;
 
   Future<void> applyWatermarkToDirectory() async {
-    _setup();
-    if (watermark == null || inputFolderPath == null || outputDirectory == null) {
-      return;
-    }
+    await _setup();
     List<File> imagesInDir = _filterNonImages(Directory(inputFolderPath!).listSync());
     int count = 0;
     for (File file in imagesInDir) {
@@ -43,7 +41,8 @@ class ImageEditor {
     }
   }
 
-  void _setup() {
+  Future<void> _setup() async {
+    await _validateDirectories();
     img.Image? temp = img.decodeImage(File(watermarkPath!).readAsBytesSync());
     if (temp != null) {
       watermark =  img.copyResize(temp,
@@ -51,8 +50,21 @@ class ImageEditor {
         height: temp.height ~/ watermarkScale,
         interpolation: img.Interpolation.cubic
       );
+    } else {
+      throw DetailedException("Failed to open watermark", "Failed to open watermark. Please check that the file is valid");
     }
+  }
 
+  Future<void> _validateDirectories() async {
+    if (watermarkPath == null || inputFolderPath == null || outputDirectory == null) {
+      throw DetailedException(
+          "The provided directory/ies are invalid.",
+          "Watermark: $watermarkPath\nInput Image Folder: $inputFolderPath \nOutput Folder: $outputDirectory");
+    }
+    if (await Directory(outputDirectory!).exists()){
+      await Directory(outputDirectory!).delete(recursive: true);
+    }
+    await Directory(outputDirectory!).create(recursive: true);
   }
 
   img.Image? _applyWatermarkToFile(img.Image image) {
