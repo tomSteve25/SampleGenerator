@@ -9,13 +9,14 @@ class PositionSelect extends StatefulWidget {
   });
 
   final void Function(WatermarkPosition?)? callback;
-  WatermarkPosition selectedPosition = WatermarkPosition.center;
 
   @override
   State<PositionSelect> createState() => _PositionSelectState();
 }
 
 class _PositionSelectState extends State<PositionSelect> with AutomaticKeepAliveClientMixin<PositionSelect>, PageMixin {
+  WatermarkPosition _selectedPosition = WatermarkPosition.center;
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -26,7 +27,7 @@ class _PositionSelectState extends State<PositionSelect> with AutomaticKeepAlive
         subtitle(content: const Text("Watermark position")),
         description(content: const Text("The position of the watermark relative to the original image")),
         ComboBox<WatermarkPosition>(
-          value: widget.selectedPosition,
+          value: _selectedPosition,
           onChanged: callback,
           items: WatermarkPosition.values.map((e) {
             return ComboBoxItem(
@@ -41,7 +42,7 @@ class _PositionSelectState extends State<PositionSelect> with AutomaticKeepAlive
 
   void callback(WatermarkPosition? pos) {
     setState(() {
-      widget.selectedPosition = pos ?? widget.selectedPosition;
+      _selectedPosition = pos ?? _selectedPosition;
     });
     if(widget.callback != null) {
       widget.callback!(pos);
