@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:exif/exif.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:sample_generator/service/enums/watermark_position.dart';
@@ -28,9 +29,12 @@ class ImageEditor {
       }
       final outputFile = File(path.join(outputDirectory!, imageName));
 
-      img.Image? image = img.decodeImage(await file.readAsBytes());
+      final imageBytes = await file.readAsBytes();
+      img.Image? image = img.decodeImage(imageBytes);
+      final exifData = await readExifFromBytes(imageBytes);
+      String orientation = exifData['Image Orientation']?.printable ?? "Horizontal";
       if (image != null) {
-        var editedImage = _applyWatermarkToFile(image);
+        var editedImage = _applyWatermarkToFile(image, orientation);
         if (editedImage != null) {
           await outputFile.writeAsBytes(img.encodeJpg(editedImage));
           if (callback != null) {
@@ -67,8 +71,8 @@ class ImageEditor {
     await Directory(outputDirectory!).create(recursive: true);
   }
 
-  img.Image? _applyWatermarkToFile(img.Image image) {
-    img.Image? resizedImage = _resizeImage(image);
+  img.Image? _applyWatermarkToFile(img.Image image, String orientation) {
+    img.Image? resizedImage = _resizeImage(image, orientation);
     if (resizedImage != null) {
       var (posX, posY) = _determineWatermarkPosition(resizedImage.height, resizedImage.width);
       resizedImage = img.drawImage(resizedImage, watermark!, dstX: posX, dstY: posY);
@@ -76,11 +80,16 @@ class ImageEditor {
     return resizedImage;
   }
 
-  img.Image? _resizeImage(img.Image orig) {
+  img.Image? _resizeImage(img.Image orig, String orientation) {
     img.Image resizedImage = img.copyResize(orig,
         width: orig.width ~/ scale,
         height: orig.height ~/ scale,
         interpolation: img.Interpolation.cubic);
+
+    if (orientation.contains("90 CCW")) {
+      resizedImage = img.copyRotate(resizedImage, -90);
+    }
+
     return img.decodeImage(img.encodeJpg(resizedImage, quality: quality));
   }
 
