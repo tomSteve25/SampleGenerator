@@ -6,9 +6,11 @@ class PositionSelect extends StatefulWidget {
   const PositionSelect({
     super.key,
     required this.callback,
+    required this.enabled
   });
 
   final void Function(WatermarkPosition?)? callback;
+  final bool enabled;
 
   @override
   State<PositionSelect> createState() => _PositionSelectState();
@@ -24,11 +26,11 @@ class _PositionSelectState extends State<PositionSelect> with AutomaticKeepAlive
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        subtitle(content: const Text("Watermark position")),
+        subtitle(content: const Text("Watermark Position")),
         description(content: const Text("The position of the watermark relative to the original image")),
         ComboBox<WatermarkPosition>(
           value: _selectedPosition,
-          onChanged: callback,
+          onChanged: !widget.enabled ? null : callback,
           items: WatermarkPosition.values.map((e) {
             return ComboBoxItem(
               value: e,
