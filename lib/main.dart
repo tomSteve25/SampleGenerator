@@ -3,12 +3,15 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'package:sample_generator/page.dart';
+import 'package:sample_generator/service/enums/colours.dart';
+import 'package:sample_generator/service/enums/font_size.dart';
 import 'package:sample_generator/service/exceptions/detailed_exception.dart';
 import 'package:sample_generator/service/image_processor.dart';
 import 'package:sample_generator/widgets/ErrorWidget.dart';
 import 'package:sample_generator/widgets/card_highlight.dart';
 import 'package:sample_generator/widgets/number_input.dart';
 import 'package:sample_generator/widgets/position_select.dart';
+import 'package:sample_generator/widgets/text_adder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'service/enums/watermark_position.dart';
@@ -31,6 +34,15 @@ Future<SharedPreferences> loadPreferences() async {
   }
   if (pref.getDouble("watermarkScale") == null) {
     pref.setDouble("watermarkScale", 1);
+  }
+  if (pref.getBool("textEnabled") == null) {
+    pref.setBool("textEnabled", true);
+  }
+  if (pref.getString("textColour") == null) {
+    pref.setString("textColour", "Black");
+  }
+  if (pref.getString("fontSize") == null) {
+    pref.setString("fontSize", "Medium");
   }
 
   return pref;
@@ -97,6 +109,9 @@ class _HomePageState extends State<HomePage> with PageMixin {
   WatermarkPosition _watermarkPosition = WatermarkPosition.center;
   ImageEditor imageEditor = ImageEditor();
   bool _disabled = false;
+  bool? _textEnabled;
+  Colour _textColour = Colour.black;
+  FontSize _selectedFontSize = FontSize.medium;
 
   @override
   void initState() {
@@ -106,6 +121,9 @@ class _HomePageState extends State<HomePage> with PageMixin {
     _watermarkDirectory = widget.pref.getString("watermarkPath");
     _scale = widget.pref.getDouble("scale");
     _watermarkScale = widget.pref.getDouble("watermarkScale");
+    _textEnabled = widget.pref.getBool("textEnabled");
+    _textColour = Colour.fromString(widget.pref.getString("textColour") ?? "black");
+    _selectedFontSize = FontSize.fromString(widget.pref.getString("fontSize") ?? "medium");
     imageEditor.callback = setPercentageCompleted;
   }
 
@@ -120,6 +138,7 @@ class _HomePageState extends State<HomePage> with PageMixin {
         imageEditor.inputFolderPath = filePath;
       });
       widget.pref.setString("imageDirectory", filePath);
+      print("");
     }
   }
 
@@ -170,6 +189,17 @@ class _HomePageState extends State<HomePage> with PageMixin {
     });
   }
 
+  void addTextCallback(bool? enabled, Colour? colour, FontSize? fontSize) {
+    setState(() {
+      _textEnabled = enabled ?? _textEnabled;
+      widget.pref.setBool("textEnabled", _textEnabled!);
+      _textColour = colour ?? _textColour;
+      widget.pref.setString("textColour", _textColour.name);
+      _selectedFontSize = fontSize ?? _selectedFontSize;
+      widget.pref.setString("fontSize", _selectedFontSize.name);
+    });
+  }
+
   Future<void> processImages() async {
     setState(() {
       _disabled = true;
@@ -181,6 +211,9 @@ class _HomePageState extends State<HomePage> with PageMixin {
       imageEditor.watermarkPosition = _watermarkPosition;
       imageEditor.scale = _scale ?? 10;
       imageEditor.watermarkScale = _watermarkScale ?? 1;
+      imageEditor.textEnabled = _textEnabled;
+      imageEditor.colour = _textColour;
+      imageEditor.fontSize = _selectedFontSize;
       await imageEditor.applyWatermarkToDirectory();
     } on DetailedException catch(e) {
       showContentDialog(context, e);
@@ -221,11 +254,12 @@ class _HomePageState extends State<HomePage> with PageMixin {
             Wrap(
               spacing: 50,
               children: <Widget>[
-                PositionSelect(callback: _disabled ? null : selectWatermarkPositionCallback,),
+                PositionSelect(callback: selectWatermarkPositionCallback, enabled: !_disabled,),
                 NumberInput(enteredValue: _scale, callback: _disabled ? null : selectImageScaleCallback, title: "Image scale", message: "The reduction ratio of the original image",),
                 NumberInput(enteredValue: _watermarkScale, callback: _disabled ? null : selectWatermarkScaleCallback, title: "Watermark scale", message: "The reduction ratio of the watermark",),
               ],
             ),
+            TextAdder(callback: addTextCallback, enabled: !_disabled, colour: _textColour, fontSize: _selectedFontSize, textEnabled: _textEnabled ?? false,),
             const SizedBox(height: 20,),
             Container(
               child: _disabled ?  ProgressBar(value: _percentageCompleted) : FilledButton(onPressed: processImages, child: const Text("Generate Samples"),),

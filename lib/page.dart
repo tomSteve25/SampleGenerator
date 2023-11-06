@@ -4,10 +4,10 @@ mixin PageMixin {
   Widget description({required Widget content}) {
     return Builder(builder: (context) {
       return Padding(
-        padding: const EdgeInsetsDirectional.only(bottom: 4.0),
+        padding: const EdgeInsetsDirectional.only(bottom: 1.0),
         child: DefaultTextStyle(
-          style: FluentTheme.of(context).typography.body!,
-          child: SizedBox(width: 350, height: 45, child: content,),
+          style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic),
+          child: content,
         ),
       );
     });
@@ -16,9 +16,9 @@ mixin PageMixin {
   Widget subtitle({required Widget content}) {
     return Builder(builder: (context) {
       return Padding(
-        padding: const EdgeInsetsDirectional.only(top: 14.0, bottom: 2.0),
+        padding: const EdgeInsetsDirectional.only(top: 7.0, bottom: 2.0),
         child: DefaultTextStyle(
-          style: FluentTheme.of(context).typography.subtitle!,
+          style: const TextStyle(fontSize: 21),
           child: content,
         ),
       );
